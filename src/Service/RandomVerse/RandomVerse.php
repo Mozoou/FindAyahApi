@@ -2,6 +2,7 @@
 
 namespace App\Service\RandomVerse;
 
+use App\Model\GameQuestionDto;
 use App\Service\QuranDataFetcher\Model\Verse;
 use App\Service\QuranDataFetcher\VerseFetcher;
 
@@ -12,103 +13,97 @@ class RandomVerse
     ) {
     }
 
-    public function randomAyahFromsurahs(array $surahs, int $questionNumber): array
+    public function randomVerseFromChapterNumbers(array $chapterNumbers, array $previousVersesQuestions): GameQuestionDto
     {
         $ayahs = [];
-        foreach ($surahs as $surah) {
-            array_push($ayahs, ...$this->verseFetcher->getAllVersesFromChapterNumber($surah));
+        foreach ($chapterNumbers as $chapterNumber) {
+            array_push($ayahs, ...$this->verseFetcher->getAllVersesFromChapterNumber($chapterNumber));
         }
 
-        $data = [];
-        for ($i = 1; $i <= $questionNumber; $i++) {
-            $data[] = $this->prepareAyahsQuestion($ayahs, $data);
-        }
-
-        return $data;
+        return $this->prepareVersesQuestion($ayahs, $previousVersesQuestions);
     }
 
-    private function prepareAyahsQuestion(array $ayahs, array $previousAyahQuestion = []): array
+    private function prepareVersesQuestion(array $verses, array $previousVersesQuestions = []): GameQuestionDto
     {
-        $randomAyahsIndexes = $this->getRandomAyahsIndexesFromChoices($ayahs);
-        $ayahToFind = $this->getRandomAyahWithoutDuplicate($ayahs, $previousAyahQuestion, $randomAyahsIndexes);
+        $gameQuestion = new GameQuestionDto();
 
-        $goodAnswerAyah = $this->getGoodAnswerAyah($ayahs, $ayahToFind);
-        $wrongAyahs = [];
-        foreach ($randomAyahsIndexes as $index) {
-            if ($ayahs[$index]->getNumber() !== $ayahToFind->getNumber()) {
-                $wrongAyahs[] = $ayahs[$index];
-            }
-        }
+        $randomVersesIndexes = $this->getRandomVersesIndexes($verses);
+        $verseToFind = $this->getRandomVersesWithoutDuplicate($verses, $previousVersesQuestions, $randomVersesIndexes);
+        $goodVerseAnswer = $this->getGoodVerseAnswer($verses, $verseToFind);
+        $badVersesAnswer = $this->getBadVersesAnswer($verses, $randomVersesIndexes, $verseToFind);
 
-        return [
-            'ayah' => $ayahToFind,
-            'goodAyah' => $goodAnswerAyah,
-            'wrongAyahs' => [
-                ...$wrongAyahs
-            ],
-        ];
+        return $gameQuestion
+            ->setVerseToFind($verseToFind)
+            ->setGoodVerseAnswer($goodVerseAnswer)
+            ->setBadVersesAnswer($badVersesAnswer);
     }
 
-    private function getRandomAyahsIndexesFromChoices(array $ayahs): array
+    private function getRandomVersesIndexes(array $verses): array
     {
-        $ayahsIndexes = [];
+        $versesIndexes = [];
 
-        for ($i = 0; $i <= count($ayahs); $i++) {
-            if (count($ayahsIndexes) >= 3) {
+        for ($i = 0; $i <= count($verses); $i++) {
+            if (count($versesIndexes) >= 3) {
                 break;
             }
 
-            $randIndex = rand(0, count($ayahs) - 1);
-            while (in_array($randIndex, $ayahsIndexes)) {
-                $randIndex = rand(0, count($ayahs) - 1);
+            $randIndex = rand(0, count($verses) - 1);
+            while (in_array($randIndex, $versesIndexes)) {
+                $randIndex = rand(0, count($verses) - 1);
             }
-            $ayahsIndexes[] = $randIndex;
+            $versesIndexes[] = $randIndex;
         }
 
-        foreach ($ayahsIndexes as $key => $ayahIndex) {
-            if ($ayahIndex !== 0) {
-                $ayahsIndexes[$key] = $ayahIndex - 1;
-            }
-
-            if ($ayahIndex === 0) {
-                $ayahsIndexes[$key] = $ayahIndex + 1;
+        foreach ($versesIndexes as $key => $verseIndex) {
+            if ($verseIndex !== 0) {
+                $versesIndexes[$key] = $verseIndex - 1;
             }
         }
 
-        return $ayahsIndexes;
+        return $versesIndexes;
     }
 
-    private function getRandomAyahWithoutDuplicate(array $ayahs, array $previousAyahQuestion, array $randomAyahsIndexes): Verse
+    private function getRandomVersesWithoutDuplicate(array $verses, array $previousVersesQuestions, array $randomVersesIndexes): Verse
     {
-        $indexToFind = array_rand($randomAyahsIndexes);
-        $ayahToFind = $ayahs[$randomAyahsIndexes[$indexToFind]];
+        $indexToFind = array_rand($randomVersesIndexes);
+        $verseToFind = $verses[$randomVersesIndexes[$indexToFind]];
 
-        foreach ($previousAyahQuestion as $question) {
-            while ($ayahToFind->getNumber() === $question['ayah']->getNumber()) {
-                $indexToFind = rand(0, count($randomAyahsIndexes) - 1);
-                $ayahToFind = $ayahs[$indexToFind];
+        foreach ($previousVersesQuestions as $question) {
+            while ($verseToFind->getNumber() === $question) {
+                $indexToFind = rand(0, count($randomVersesIndexes) - 1);
+                $verseToFind = $verses[$indexToFind];
 
-                // Check if the newly generated ayah matches any previous ayah
                 $matched = false;
-                foreach ($previousAyahQuestion as $prevQuestion) {
-                    if ($ayahToFind->getNumber() === $prevQuestion['ayah']->getNumber()) {
-                        $indexToFind = rand(0, count($randomAyahsIndexes) - 1);
-                        $ayahToFind = $ayahs[$indexToFind];
+                foreach ($previousVersesQuestions as $prevQuestion) {
+                    if ($verseToFind->getNumber() === $prevQuestion) {
+                        $indexToFind = rand(0, count($randomVersesIndexes) - 1);
+                        $verseToFind = $verses[$indexToFind];
                     }
                 }
 
                 if (!$matched) {
-                    // Break out of the while loop if a unique ayah is found
                     break;
                 }
             }
         }
 
-        return $ayahToFind;
+        return $verseToFind;
     }
 
-    private function getGoodAnswerAyah(array $ayahs, Verse $ayah): Verse
+    private function getGoodVerseAnswer(array $ayahs, Verse $ayah): Verse
     {
         return $ayahs[array_search($ayah, $ayahs) + 1];
+    }
+
+    private function getBadVersesAnswer(array $verses, array $randomVersesIndexes, Verse $verseToFind): array
+    {
+        $badVersesAnswer = [];
+        foreach ($randomVersesIndexes as $index) {
+            if ($verses[$index]->getNumber() !== $verseToFind->getNumber()) {
+                $badVersesAnswer[] = $verses[$index];
+            }
+        }
+
+        return $badVersesAnswer;
     }
 }

@@ -10,7 +10,7 @@ class GameSettingDto
         #[Assert\Count(min: 1)]
         public readonly array $chapterNumbers,
         #[Assert\Positive()]
-        public readonly int $numberOfQuestionPerGame,
+        public readonly int $numberOfQuestionsPerGame,
     ) {
     }
 }

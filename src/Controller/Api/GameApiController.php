@@ -2,6 +2,7 @@
 
 namespace App\Controller\Api;
 
+use App\Controller\GameController;
 use App\Model\GameSettingDto;
 use App\Service\RandomVerse\RandomVerse;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -12,7 +13,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class GameApiController extends AbstractController
 {
     public function __construct(
-        private RandomVerse $randomVerse,
+        private GameController $gameController
     ) {
     }
 
@@ -20,9 +21,6 @@ class GameApiController extends AbstractController
     public function retriveGameQuestions(
         #[MapRequestPayload()] GameSettingDto $gameSettings
     ): JsonResponse {
-        $chapterNumbers = $gameSettings->chapterNumbers;
-        $questionNumber = $gameSettings->numberOfQuestionPerGame;
-
-        return $this->json($this->randomVerse->randomAyahFromsurahs($chapterNumbers, $questionNumber));
+        return $this->json($this->gameController->prepareQuestions($gameSettings->chapterNumbers, $gameSettings->numberOfQuestionsPerGame));
     }
 }
